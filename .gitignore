@@ -1,0 +1,7 @@
+config.json
+.idea/
+
+# build files
+Momoi_Bot.egg-info/
+build/
+dist/
