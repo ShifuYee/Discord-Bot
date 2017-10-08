@@ -1,3 +1,18 @@
 {
-  "bot_token": "XXXX"
+  "gateway_api_version": 6,
+  "gateway_encoding": "json",
+  "handshake_identity": {
+    "token": "INSERT BOT TOKEN HERE",
+    "properties": {
+      "$os": "windows",
+      "$browser": "disco",
+      "$device": "disco"
+    },
+    "compress": false,
+    "large_threshold": 250,
+    "shard": [
+      1,
+      10
+    ]
+  }
 }
