@@ -1,6 +1,6 @@
 configs/config.json
 .idea/
-discord_bot/__pycache__/
+*.pyc
 
 # build files
 Momoi_Bot.egg-info/
