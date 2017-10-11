@@ -62,7 +62,9 @@ class DiscordBot:
         """
         Sends a heartbeat payload every heartbeat interval.
         """
-        await asyncio.sleep(self.heartbeat_interval_ms / 1000.0)
+        # await asyncio.sleep(self.heartbeat_interval_ms / 1000.0)
+        await asyncio.sleep(5)
+        print(self.last_seq)
         asyncio.ensure_future(self.send_json({"op": Opcodes.HEARTBEAT, "d": self.last_seq}))
         asyncio.ensure_future(self.heartbeat())
 
@@ -81,6 +83,8 @@ class DiscordBot:
                 if message["op"] == Opcodes.HELLO:
                     asyncio.ensure_future(self.handshake(message))
                 elif message["op"] == Opcodes.DISPATCH:
+                    self.last_seq = message["s"]
+                elif message["op"] != Opcodes.HEARTBEAT_ACK:
+                    self.last_seq = message["s"]
+                else:
                     pass
-                elif not message["s"]:
-                    self.last_seq = None
