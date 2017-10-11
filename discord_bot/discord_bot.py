@@ -39,7 +39,7 @@ class DiscordBot:
         Caches a gateway value and retrieves a new URL
         :return: gateway URL
         """
-        r = requests.get(self.config("discord_gateway_endpoint"))
+        r = requests.get(self.config["discord_gateway_endpoint"])
         return r.json()['url']
 
     async def send_json(self, payload):
@@ -62,9 +62,9 @@ class DiscordBot:
         """
         Sends a heartbeat payload every heartbeat interval.
         """
-        asyncio.ensure_future(asyncio.sleep(self.heartbeat_interval_ms / 1000.0))
+        await asyncio.sleep(self.heartbeat_interval_ms / 1000.0)
         asyncio.ensure_future(self.send_json({"op": Opcodes.HEARTBEAT, "d": self.last_seq}))
-        self.event_loop.create_task(self.heartbeat())
+        asyncio.ensure_future(self.heartbeat())
 
     async def gateway_handler(self):
         """
@@ -75,11 +75,12 @@ class DiscordBot:
                                                                     self.config["gateway_encoding"])) as websocket:
             self.websocket = websocket
             while True:
-                message = asyncio.ensure_future(self.websocket.recv())
+                message = await self.websocket.recv()
                 message = json.loads(message)
-                self.last_seq = message["s"]
                 print("{}: {}".format(Opcodes(message["op"]).name, message))
                 if message["op"] == Opcodes.HELLO:
                     asyncio.ensure_future(self.handshake(message))
                 elif message["op"] == Opcodes.DISPATCH:
                     pass
+                elif not message["s"]:
+                    self.last_seq = None

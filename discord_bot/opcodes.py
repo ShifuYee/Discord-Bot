@@ -1,10 +1,11 @@
 from enum import IntEnum
-"""
-Opcodes are based on the Gateway Opcodes from the Discord API:
-https://discordapp.com/developers/docs/topics/gateway
-"""
+
 
 class Opcodes(IntEnum):
+    """
+    Opcodes are based on the Gateway Opcodes from the Discord API:
+    https://discordapp.com/developers/docs/topics/gateway
+    """
     DISPATCH = 0
     HEARTBEAT = 1
     IDENTIFY = 2
