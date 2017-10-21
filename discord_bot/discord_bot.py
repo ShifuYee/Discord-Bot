@@ -1,6 +1,5 @@
 import asyncio
 import json
-
 import requests
 import websockets
 
@@ -18,25 +17,30 @@ class DiscordBot:
 
     def __init__(self):
         # instance variables
-        self.config = self.load_config()
-        self.gateway_ws_url = self.get_gateway()
+        self.config = None
+        self.gateway_ws_url = None
         self.heartbeat_interval_ms = None
         self.last_seq = None
-        self.event_loop = asyncio.get_event_loop()
+        self.event_loop = None
         self.websocket = None
         self.session_id = None
 
-        # actions
+    def setup(self):
+        self.config = self.load_config(CONFIG_FILE_PATH)
+        self.gateway_ws_url = self.get_gateway()
+        self.event_loop = asyncio.get_event_loop()
+
+    def run(self):
         self.event_loop.run_until_complete(self.gateway_handler())
         self.event_loop.close()
 
     @staticmethod
-    def load_config():
+    def load_config(config_file_path):
         """
         Loads the configurations
         :return: dict - the configurations
         """
-        with open(CONFIG_FILE_PATH) as f:
+        with open(config_file_path) as f:
             return json.load(f)
 
     def get_gateway(self):
