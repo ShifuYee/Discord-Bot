@@ -1,13 +1,14 @@
 import asyncio
 import json
+
 import requests
 import websockets
 
-from .opcodes import Opcodes
+from version import __version__
 from .events import Events
-from ._version import __version__
+from .opcodes import Opcodes
 
-CONFIG_FILE_PATH = 'configs/config.json'
+CONFIG_FILE_PATH = "configs/config.json"
 
 
 class DiscordBot:
@@ -51,7 +52,7 @@ class DiscordBot:
         }
         r = requests.get("{}/gateway".format(self.config["discord_api_endpoint"]), header)
         assert 200 == r.status_code, r.reason
-        return r.json()['url']
+        return r.json()["url"]
 
     async def send_json(self, payload):
         asyncio.ensure_future(self.websocket.send(json.dumps(payload)))
@@ -113,7 +114,7 @@ class DiscordBot:
                 elif message["op"] == Opcodes.HEARTBEAT_ACK:
                     pass
                 elif message["op"] == Opcodes.INVALID_SESSION:
-                    print('Invalid Session')
+                    print("Invalid Session")
                 elif message["op"] == Opcodes.DISPATCH:
                     event = message["t"]
                     if event == Events.READY:
@@ -127,7 +128,7 @@ class DiscordBot:
         Post a message into the given channel
         :param recipient_id: num - the recipient to open a DM channel with
         :param content: obj - message sent
-        :return: dict - Fires a 'Message Create' Gateway event
+        :return: dict - Fires a "Message Create" Gateway event
         """
         channel = requests.post("{}", json={
                                             "recipient_id": recipient_id
