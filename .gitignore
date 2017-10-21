@@ -1,5 +1,6 @@
 configs/config.json
 .idea/
+*.pyc
 
 # build files
 Momoi_Bot.egg-info/
