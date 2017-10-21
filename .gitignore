@@ -4,5 +4,6 @@ configs/config.json
 
 # build files
 Momoi_Bot.egg-info/
+.eggs/
 build/
 dist/

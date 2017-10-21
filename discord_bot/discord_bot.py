@@ -25,6 +25,7 @@ class DiscordBot:
         self.websocket = None
         self.session_id = None
 
+    # TODO: Docstrings for setup and run
     def setup(self):
         self.config = self.load_config(CONFIG_FILE_PATH)
         self.gateway_ws_url = self.get_gateway()
@@ -48,16 +49,17 @@ class DiscordBot:
         Caches a gateway value, authenticates, and retrieves a new URL
         :return: gateway URL
         """
-        header = {
+        headers = {
             "headers": {
                 "Authorization": "Bot {}".format(self.config["handshake_identity"]["token"]),
                 "User-Agent": "DiscordBot (https://github.com/ShifuYee/Discord-Bot, {})".format(__version__)
             }
         }
-        r = requests.get("{}/gateway".format(self.config["discord_api_endpoint"]), header)
+        r = requests.get("{}/gateway".format(self.config["discord_api_endpoint"]), headers)
         assert 200 == r.status_code, r.reason
         return r.json()["url"]
 
+    # TODO: Docstring
     async def send_json(self, payload):
         asyncio.ensure_future(self.websocket.send(json.dumps(payload)))
 
@@ -72,19 +74,23 @@ class DiscordBot:
         asyncio.ensure_future(self.heartbeat())
         handshake_identity = self.config["handshake_identity"]
         if self.session_id:
-            asyncio.ensure_future(self.send_json({
-                                                    "op": Opcodes.RESUME,
-                                                    "d": {
-                                                        "token": self.config["handshake_identity"]["token"],
-                                                        "session_id": self.session_id,
-                                                        "seq": self.last_seq
-                                                    }
-            }))
+            asyncio.ensure_future(self.send_json(
+                {
+                    "op": Opcodes.RESUME,
+                    "d": {
+                        "token": self.config["handshake_identity"]["token"],
+                        "session_id": self.session_id,
+                        "seq": self.last_seq
+                    }
+                }
+            ))
         else:
-            asyncio.ensure_future(self.send_json({
-                                                    "op": Opcodes.IDENTIFY,
-                                                    "d": handshake_identity
-            }))
+            asyncio.ensure_future(self.send_json(
+                {
+                    "op": Opcodes.IDENTIFY,
+                    "d": handshake_identity
+                }
+            ))
 
     async def heartbeat(self):
         """
@@ -92,10 +98,12 @@ class DiscordBot:
         """
         await asyncio.sleep(self.heartbeat_interval_ms / 1000.0)
         print("Last Sequence: {}".format(self.last_seq))
-        asyncio.ensure_future(self.send_json({
-                                                "op": Opcodes.HEARTBEAT,
-                                                "d": self.last_seq
-        }))
+        asyncio.ensure_future(self.send_json(
+            {
+                "op": Opcodes.HEARTBEAT,
+                "d": self.last_seq
+            }
+        ))
         asyncio.ensure_future(self.heartbeat())
 
     async def gateway_handler(self):
@@ -134,12 +142,11 @@ class DiscordBot:
         :param content: obj - message sent
         :return: dict - Fires a "Message Create" Gateway event
         """
-        channel = requests.post("{}", json={
-                                            "recipient_id": recipient_id
-                                            }).json()
+        channel = requests.post("{}", json={"recipient_id": recipient_id}).json()
 
-        return requests.post("{}/channels/{}/messages".format(self.config["discord_api_endpoint"],
-                                                              channel["id"]),
-                             json={
-                                    "content": content
-                             }).json()
+        return requests.post(
+            "{}/channels/{}/messages".format(
+                self.config["discord_api_endpoint"], channel["id"]),
+            json={
+                "content": content
+            }).json()
