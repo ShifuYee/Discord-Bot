@@ -1,8 +1,5 @@
 {
-  "my_channel_id": "INSERT CHANNEL ID HERE",
-  "discord_channel_endpoint": "https://discordapp.com/api/v6/channels/",
-  "discord_gateway_endpoint": "https://discordapp.com/api/v6/gateway",
-  "discord_user_endpoint": "https://discordapp.com/api/v6/users/@me/channels",
+  "discord_api_endpoint": "https://discordapp.com/api/v6",
   "gateway_api_version": 6,
   "gateway_encoding": "json",
   "handshake_identity": {
