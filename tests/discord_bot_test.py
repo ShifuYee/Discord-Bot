@@ -11,6 +11,9 @@ class TestStringMethods(unittest.TestCase):
         self.bot = DiscordBot()
 
     def test_load_config(self):
+        """
+        This test verifies the load_config function
+        """
         config = self.bot.load_config(TEST_CONFIG_FILE_PATH)
         self.assertEqual(config, {
             "discord_api_endpoint": "https://discordapp.com/api/v6",
@@ -28,6 +31,17 @@ class TestStringMethods(unittest.TestCase):
                 "shard": [0, 1]
             }
         })
+
+    def test_get_gateway(self):
+        """
+        This test verifies the get_gateway function
+        """
+        self.bot.config = {
+            "discord_api_endpoint": "https://discordapp.com/api/v6"
+        }
+        # TODO: Mock out Discord API endpoint
+        gateway = self.bot.get_gateway()
+        self.assertEqual(gateway, "wss://gateway.discord.gg")
 
 
 if __name__ == "__main__":
