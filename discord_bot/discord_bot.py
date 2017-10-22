@@ -2,31 +2,41 @@ import asyncio
 import json
 import requests
 import websockets
+import logging
 
+from logging.config import dictConfig
 from version import __version__
 from .events import Events
 from .opcodes import Opcodes
 
 CONFIG_FILE_PATH = "configs/config.json"
+LOGGING_FILE_PATH = "configs/logging.json"
 
 
 class DiscordBot:
     """
     Establishes a connection to the discord gateway and handles varied messages
     """
-
     def __init__(self):
         # instance variables
+        self.event_loop = None
         self.config = None
         self.gateway_ws_url = None
         self.heartbeat_interval_ms = None
         self.last_seq = None
-        self.event_loop = None
-        self.websocket = None
+        self.logger = None
+        self.logging_config = None
         self.session_id = None
+        self.websocket = None
 
     # TODO: Docstrings for setup and run
     def setup(self):
+        # Logging setup
+        self.logging_config = self.load_config(LOGGING_FILE_PATH)
+        dictConfig(self.logging_config)
+        self.logger = logging.getLogger()
+
+        # Bot setup
         self.config = self.load_config(CONFIG_FILE_PATH)
         self.gateway_ws_url = self.get_gateway(self.config["discord_api_endpoint"],
                                                self.config["handshake_identity"]["token"])
@@ -99,7 +109,7 @@ class DiscordBot:
         Sends a heartbeat payload every heartbeat interval.
         """
         await asyncio.sleep(self.heartbeat_interval_ms / 1000.0)
-        print("Last Sequence: {}".format(self.last_seq))
+        logging.info("Last Sequence: {}".format(self.last_seq))
         asyncio.ensure_future(self.send_json(
             {
                 "op": Opcodes.HEARTBEAT,
@@ -119,7 +129,7 @@ class DiscordBot:
             while True:
                 message = await self.websocket.recv()
                 message = json.loads(message)
-                print("{}: {}".format(Opcodes(message["op"]).name, message))
+                logging.info("{}: {}".format(Opcodes(message["op"]).name, message))
                 if message["s"] is not None:
                     self.last_seq = message["s"]
 
@@ -128,13 +138,13 @@ class DiscordBot:
                 elif message["op"] == Opcodes.HEARTBEAT_ACK:
                     pass
                 elif message["op"] == Opcodes.INVALID_SESSION:
-                    print("Invalid Session")
+                    logging.info("Invalid Session")
                 elif message["op"] == Opcodes.DISPATCH:
                     event = message["t"]
                     if event == Events.READY:
                         self.session_id = message["d"]["session_id"]
                 else:
-                    print(message)
+                    logging.info(message)
 
     # TODO: Remove this test code
     async def send_message(self, recipient_id, content):

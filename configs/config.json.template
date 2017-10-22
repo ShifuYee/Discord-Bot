@@ -11,9 +11,6 @@
     },
     "compress": false,
     "large_threshold": 250,
-    "shard": [
-      0,
-      1
-    ]
+    "shard": [0, 1]
   }
 }
