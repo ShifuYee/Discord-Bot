@@ -28,7 +28,8 @@ class DiscordBot:
     # TODO: Docstrings for setup and run
     def setup(self):
         self.config = self.load_config(CONFIG_FILE_PATH)
-        self.gateway_ws_url = self.get_gateway()
+        self.gateway_ws_url = self.get_gateway(self.config["discord_api_endpoint"],
+                                               self.config["handshake_identity"]["token"])
         self.event_loop = asyncio.get_event_loop()
 
     def run(self):
@@ -44,18 +45,19 @@ class DiscordBot:
         with open(config_file_path) as f:
             return json.load(f)
 
-    def get_gateway(self):
+    @staticmethod
+    def get_gateway(url, token):
         """
         Caches a gateway value, authenticates, and retrieves a new URL
         :return: gateway URL
         """
         headers = {
             "headers": {
-                "Authorization": "Bot {}".format(self.config["handshake_identity"]["token"]),
+                "Authorization": "Bot {}".format(token),
                 "User-Agent": "DiscordBot (https://github.com/ShifuYee/Discord-Bot, {})".format(__version__)
             }
         }
-        r = requests.get("{}/gateway".format(self.config["discord_api_endpoint"]), headers)
+        r = requests.get("{}/gateway".format(url), headers)
         assert 200 == r.status_code, r.reason
         return r.json()["url"]
 
