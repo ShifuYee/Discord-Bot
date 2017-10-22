@@ -3,7 +3,6 @@ import json
 import requests
 import websockets
 
-from version import __version__
 from .events import Events
 from .opcodes import Opcodes
 
@@ -49,13 +48,7 @@ class DiscordBot:
         Caches a gateway value, authenticates, and retrieves a new URL
         :return: gateway URL
         """
-        headers = {
-            "headers": {
-                "Authorization": "Bot {}".format(self.config["handshake_identity"]["token"]),
-                "User-Agent": "DiscordBot (https://github.com/ShifuYee/Discord-Bot, {})".format(__version__)
-            }
-        }
-        r = requests.get("{}/gateway".format(self.config["discord_api_endpoint"]), headers)
+        r = requests.get("{}/gateway".format(self.config["discord_api_endpoint"]))
         assert 200 == r.status_code, r.reason
         return r.json()["url"]
 
