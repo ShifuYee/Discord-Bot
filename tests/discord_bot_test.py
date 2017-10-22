@@ -2,6 +2,7 @@ import unittest
 
 from discord_bot.discord_bot import DiscordBot
 
+CONFIG_FILE_PATH = "configs/config.json"
 TEST_CONFIG_FILE_PATH = "configs/config.json.template"
 
 
@@ -28,6 +29,12 @@ class TestStringMethods(unittest.TestCase):
                 "shard": [0, 1]
             }
         })
+
+    def test_get_gateway(self):
+        config = self.bot.load_config(CONFIG_FILE_PATH)
+        gateway = self.bot.get_gateway(config["discord_api_endpoint"],
+                                       config["handshake_identity"]["token"])
+        self.assertEqual(gateway, "wss://gateway.discord.gg")
 
 
 if __name__ == "__main__":
