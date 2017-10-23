@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import requests
 import websockets
 
@@ -20,13 +21,20 @@ class DiscordBot:
         self.gateway_ws_url = None
         self.heartbeat_interval_ms = None
         self.last_seq = None
+        self.logger = None
         self.event_loop = None
         self.websocket = None
         self.session_id = None
 
-    # TODO: Docstrings for setup and run
+    # TODO: Docstrings for setup and runs
     def setup(self):
         self.config = self.load_config(CONFIG_FILE_PATH)
+
+        logging.basicConfig(format='%(asctime)s %(module)s %(levelname)s: %(message)s',
+                            datefmt='%m/%d/%Y %I:%M:%S %p',
+                            level=logging.INFO)
+        self.logger = logging.getLogger(__name__)
+
         self.gateway_ws_url = self.get_gateway()
         self.event_loop = asyncio.get_event_loop()
 
@@ -90,7 +98,7 @@ class DiscordBot:
         Sends a heartbeat payload every heartbeat interval.
         """
         await asyncio.sleep(self.heartbeat_interval_ms / 1000.0)
-        print("Last Sequence: {}".format(self.last_seq))
+        self.logger.info("Last Sequence: {}".format(self.last_seq))
         asyncio.ensure_future(self.send_json(
             {
                 "op": Opcodes.HEARTBEAT,
@@ -110,7 +118,7 @@ class DiscordBot:
             while True:
                 message = await self.websocket.recv()
                 message = json.loads(message)
-                print("{}: {}".format(Opcodes(message["op"]).name, message))
+                self.logger.info("{}: {}".format(Opcodes(message["op"]).name, message))
                 if message["s"] is not None:
                     self.last_seq = message["s"]
 
@@ -119,13 +127,13 @@ class DiscordBot:
                 elif message["op"] == Opcodes.HEARTBEAT_ACK:
                     pass
                 elif message["op"] == Opcodes.INVALID_SESSION:
-                    print("Invalid Session")
+                    self.logger.info("Invalid Session")
                 elif message["op"] == Opcodes.DISPATCH:
                     event = message["t"]
                     if event == Events.READY:
                         self.session_id = message["d"]["session_id"]
                 else:
-                    print(message)
+                    self.logger.info(message)
 
     # TODO: Remove this test code
     async def send_message(self, recipient_id, content):
