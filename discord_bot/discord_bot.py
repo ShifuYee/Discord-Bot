@@ -31,9 +31,9 @@ class DiscordBot:
         self.config = self.load_config(CONFIG_FILE_PATH)
 
         logging.basicConfig(format='%(asctime)s %(module)s %(levelname)s: %(message)s',
-                            datefmt='%m/%d/%Y %I:%M:%S %p',
-                            level=logging.INFO)
+                            datefmt='%m/%d/%Y %I:%M:%S %p')
         self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(self.config["log_level"])
 
         self.gateway_ws_url = self.get_gateway()
         self.event_loop = asyncio.get_event_loop()
@@ -127,13 +127,13 @@ class DiscordBot:
                 elif message["op"] == Opcodes.HEARTBEAT_ACK:
                     pass
                 elif message["op"] == Opcodes.INVALID_SESSION:
-                    self.logger.info("Invalid Session")
+                    self.logger.warning("Invalid Session")
                 elif message["op"] == Opcodes.DISPATCH:
                     event = message["t"]
                     if event == Events.READY:
                         self.session_id = message["d"]["session_id"]
                 else:
-                    self.logger.info(message)
+                    self.logger.exception("Unexpected opcode {}: {}".format(message["op"], message))
 
     # TODO: Remove this test code
     async def send_message(self, recipient_id, content):
