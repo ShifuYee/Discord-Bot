@@ -1,11 +1,12 @@
 import asyncio
 import json
 import logging
-import requests
 import websockets
 
+from aiohttp import ClientSession
 from .events import Events
 from .opcodes import Opcodes
+
 
 CONFIG_FILE_PATH = "configs/config.json"
 
@@ -35,8 +36,8 @@ class DiscordBot:
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(self.config["log_level"])
 
-        self.gateway_ws_url = self.get_gateway()
         self.event_loop = asyncio.get_event_loop()
+        self.gateway_ws_url = self.event_loop.run_until_complete(self.get_gateway())
 
     def run(self):
         self.event_loop.run_until_complete(self.gateway_handler())
@@ -51,28 +52,26 @@ class DiscordBot:
         with open(config_file_path) as f:
             return json.load(f)
 
-    def get_gateway(self):
+    async def get_gateway(self):
         """
         Caches a gateway value, authenticates, and retrieves a new URL
         :return: gateway URL
         """
-        r = requests.get("{}/gateway".format(self.config["discord_api_endpoint"]))
-        assert 200 == r.status_code, r.reason
-        return r.json()["url"]
+        with ClientSession() as session:
+            async with session.request("GET", "{}/gateway".format(self.config["discord_api_endpoint"])) as r:
+                assert 200 == r.status
+                self.logger.info(r.reason)
+                return await r.json()
 
     # TODO: Docstring
     async def send_json(self, payload):
         asyncio.ensure_future(self.websocket.send(json.dumps(payload)))
 
-    async def handshake(self, message):
+    async def handshake(self):
         """
         When a websocket connection is opened, Hello payload is received. Then, an Identify/Resume payload is sent as
         part of the handshake to authorize this client.
-
-        :param message: dict - hello payload
         """
-        self.heartbeat_interval_ms = message["d"]["heartbeat_interval"]
-        asyncio.ensure_future(self.heartbeat())
         handshake_identity = self.config["handshake_identity"]
         if self.session_id:
             asyncio.ensure_future(self.send_json(
@@ -111,7 +110,7 @@ class DiscordBot:
         """
         Creates the websocket, receives responses and acts on them.
         """
-        async with websockets.connect("{}/?v={}&encoding={}".format(self.gateway_ws_url,
+        async with websockets.connect("{}/?v={}&encoding={}".format(self.gateway_ws_url["url"],
                                                                     self.config["gateway_api_version"],
                                                                     self.config["gateway_encoding"])) as websocket:
             self.websocket = websocket
@@ -123,7 +122,9 @@ class DiscordBot:
                     self.last_seq = message["s"]
 
                 if message["op"] == Opcodes.HELLO:
-                    asyncio.ensure_future(self.handshake(message))
+                    self.heartbeat_interval_ms = message["d"]["heartbeat_interval"]
+                    asyncio.ensure_future(self.heartbeat())
+                    asyncio.ensure_future(self.handshake())
                 elif message["op"] == Opcodes.HEARTBEAT_ACK:
                     pass
                 elif message["op"] == Opcodes.INVALID_SESSION:
