@@ -4,6 +4,7 @@ import logging
 import websockets
 
 from aiohttp import ClientSession
+from .discord_bot_exception import DiscordBotException
 from .events import Events
 from .opcodes import Opcodes
 
@@ -57,11 +58,16 @@ class DiscordBot:
         Caches a gateway value, authenticates, and retrieves a new URL
         :return: gateway URL
         """
-        with ClientSession() as session:
+        # TODO: configurable timeout for all of our REST requests
+        async with ClientSession() as session:
             async with session.request("GET", "{}/gateway".format(self.config["discord_api_endpoint"])) as r:
-                assert 200 == r.status
-                self.logger.info(r.reason)
-                return await r.json()
+                if r.status == 200:
+                    json_response = await r.json()
+                    return json_response["url"]
+                else:
+                    raise DiscordBotException(
+                        f"Expected gateway URL, received HTTP status code: {r.status} instead of 200, aborting program."
+                    )
 
     # TODO: Docstring
     async def send_json(self, payload):
@@ -106,11 +112,20 @@ class DiscordBot:
         ))
         asyncio.ensure_future(self.heartbeat())
 
+    async def hello_handler(self, message):
+        """
+        Does the following methods when the Opcode is "HELLO"
+        :param message: Hello message
+        """
+        self.heartbeat_interval_ms = message["d"]["heartbeat_interval"]
+        asyncio.ensure_future(self.heartbeat())
+        asyncio.ensure_future(self.handshake())
+
     async def gateway_handler(self):
         """
         Creates the websocket, receives responses and acts on them.
         """
-        async with websockets.connect("{}/?v={}&encoding={}".format(self.gateway_ws_url["url"],
+        async with websockets.connect("{}/?v={}&encoding={}".format(self.gateway_ws_url,
                                                                     self.config["gateway_api_version"],
                                                                     self.config["gateway_encoding"])) as websocket:
             self.websocket = websocket
@@ -122,9 +137,7 @@ class DiscordBot:
                     self.last_seq = message["s"]
 
                 if message["op"] == Opcodes.HELLO:
-                    self.heartbeat_interval_ms = message["d"]["heartbeat_interval"]
-                    asyncio.ensure_future(self.heartbeat())
-                    asyncio.ensure_future(self.handshake())
+                    asyncio.ensure_future(self.hello_handler(message))
                 elif message["op"] == Opcodes.HEARTBEAT_ACK:
                     pass
                 elif message["op"] == Opcodes.INVALID_SESSION:
@@ -137,18 +150,18 @@ class DiscordBot:
                     self.logger.exception("Unexpected opcode {}: {}".format(message["op"], message))
 
     # TODO: Remove this test code
-    async def send_message(self, recipient_id, content):
-        """
-        Post a message into the given channel
-        :param recipient_id: num - the recipient to open a DM channel with
-        :param content: obj - message sent
-        :return: dict - Fires a "Message Create" Gateway event
-        """
-        channel = requests.post("{}", json={"recipient_id": recipient_id}).json()
-
-        return requests.post(
-            "{}/channels/{}/messages".format(
-                self.config["discord_api_endpoint"], channel["id"]),
-            json={
-                "content": content
-            }).json()
+    # async def send_message(self, recipient_id, content):
+    #     """
+    #     Post a message into the given channel
+    #     :param recipient_id: num - the recipient to open a DM channel with
+    #     :param content: obj - message sent
+    #     :return: dict - Fires a "Message Create" Gateway event
+    #     """
+    #     channel = requests.post("{}", json={"recipient_id": recipient_id}).json()
+    #
+    #     return requests.post(
+    #         "{}/channels/{}/messages".format(
+    #             self.config["discord_api_endpoint"], channel["id"]),
+    #         json={
+    #             "content": content
+    #         }).json()

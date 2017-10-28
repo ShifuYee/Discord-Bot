@@ -8,7 +8,7 @@ setup(
 
     # Project uses reStructuredText, so ensure that the docutils get
     # installed or upgraded on the target machine
-    install_requires=['aiohttp','asyncio', 'websockets', 'logging'],
+    install_requires=['aiohttp', 'asyncio', 'websockets', 'logging'],
 
     package_data={
         '': {
