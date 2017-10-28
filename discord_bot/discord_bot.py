@@ -1,11 +1,13 @@
 import asyncio
 import json
 import logging
-import requests
 import websockets
 
+from aiohttp import ClientSession
+from .discord_bot_exception import DiscordBotException
 from .events import Events
 from .opcodes import Opcodes
+
 
 CONFIG_FILE_PATH = "configs/config.json"
 
@@ -35,8 +37,8 @@ class DiscordBot:
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(self.config["log_level"])
 
-        self.gateway_ws_url = self.get_gateway()
         self.event_loop = asyncio.get_event_loop()
+        self.gateway_ws_url = self.event_loop.run_until_complete(self.get_gateway())
 
     def run(self):
         self.event_loop.run_until_complete(self.gateway_handler())
@@ -51,28 +53,31 @@ class DiscordBot:
         with open(config_file_path) as f:
             return json.load(f)
 
-    def get_gateway(self):
+    async def get_gateway(self):
         """
         Caches a gateway value, authenticates, and retrieves a new URL
         :return: gateway URL
         """
-        r = requests.get("{}/gateway".format(self.config["discord_api_endpoint"]))
-        assert 200 == r.status_code, r.reason
-        return r.json()["url"]
+        # TODO: configurable timeout for all of our REST requests
+        async with ClientSession() as session:
+            async with session.request("GET", "{}/gateway".format(self.config["discord_api_endpoint"])) as r:
+                if r.status == 200:
+                    json_response = await r.json()
+                    return json_response["url"]
+                else:
+                    raise DiscordBotException(
+                        f"Expected gateway URL, received HTTP status code: {r.status} instead of 200, aborting program."
+                    )
 
     # TODO: Docstring
     async def send_json(self, payload):
         asyncio.ensure_future(self.websocket.send(json.dumps(payload)))
 
-    async def handshake(self, message):
+    async def handshake(self):
         """
         When a websocket connection is opened, Hello payload is received. Then, an Identify/Resume payload is sent as
         part of the handshake to authorize this client.
-
-        :param message: dict - hello payload
         """
-        self.heartbeat_interval_ms = message["d"]["heartbeat_interval"]
-        asyncio.ensure_future(self.heartbeat())
         handshake_identity = self.config["handshake_identity"]
         if self.session_id:
             asyncio.ensure_future(self.send_json(
@@ -107,6 +112,15 @@ class DiscordBot:
         ))
         asyncio.ensure_future(self.heartbeat())
 
+    async def hello_handler(self, message):
+        """
+        Does the following methods when the Opcode is "HELLO"
+        :param message: Hello message
+        """
+        self.heartbeat_interval_ms = message["d"]["heartbeat_interval"]
+        asyncio.ensure_future(self.heartbeat())
+        asyncio.ensure_future(self.handshake())
+
     async def gateway_handler(self):
         """
         Creates the websocket, receives responses and acts on them.
@@ -123,7 +137,7 @@ class DiscordBot:
                     self.last_seq = message["s"]
 
                 if message["op"] == Opcodes.HELLO:
-                    asyncio.ensure_future(self.handshake(message))
+                    asyncio.ensure_future(self.hello_handler(message))
                 elif message["op"] == Opcodes.HEARTBEAT_ACK:
                     pass
                 elif message["op"] == Opcodes.INVALID_SESSION:
@@ -136,18 +150,18 @@ class DiscordBot:
                     self.logger.exception("Unexpected opcode {}: {}".format(message["op"], message))
 
     # TODO: Remove this test code
-    async def send_message(self, recipient_id, content):
-        """
-        Post a message into the given channel
-        :param recipient_id: num - the recipient to open a DM channel with
-        :param content: obj - message sent
-        :return: dict - Fires a "Message Create" Gateway event
-        """
-        channel = requests.post("{}", json={"recipient_id": recipient_id}).json()
-
-        return requests.post(
-            "{}/channels/{}/messages".format(
-                self.config["discord_api_endpoint"], channel["id"]),
-            json={
-                "content": content
-            }).json()
+    # async def send_message(self, recipient_id, content):
+    #     """
+    #     Post a message into the given channel
+    #     :param recipient_id: num - the recipient to open a DM channel with
+    #     :param content: obj - message sent
+    #     :return: dict - Fires a "Message Create" Gateway event
+    #     """
+    #     channel = requests.post("{}", json={"recipient_id": recipient_id}).json()
+    #
+    #     return requests.post(
+    #         "{}/channels/{}/messages".format(
+    #             self.config["discord_api_endpoint"], channel["id"]),
+    #         json={
+    #             "content": content
+    #         }).json()
