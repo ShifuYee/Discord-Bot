@@ -4,6 +4,7 @@ import logging
 import websockets
 
 from aiohttp import ClientSession
+from http import HTTPStatus
 from .discord_bot_exception import DiscordBotException
 from .events import Events
 from .opcodes import Opcodes
@@ -61,7 +62,7 @@ class DiscordBot:
         # TODO: configurable timeout for all of our REST requests
         async with ClientSession() as session:
             async with session.request("GET", "{}/gateway".format(self.config["discord_api_endpoint"])) as r:
-                if r.status == 200:
+                if r.status == HTTPStatus.OK:
                     json_response = await r.json()
                     return json_response["url"]
                 else:
@@ -80,23 +81,21 @@ class DiscordBot:
         """
         handshake_identity = self.config["handshake_identity"]
         if self.session_id:
-            asyncio.ensure_future(self.send_json(
-                {
-                    "op": Opcodes.RESUME,
-                    "d": {
-                        "token": self.config["handshake_identity"]["token"],
-                        "session_id": self.session_id,
-                        "seq": self.last_seq
-                    }
+            payload = {
+                "op": Opcodes.RESUME,
+                "d": {
+                    "token": self.config["handshake_identity"]["token"],
+                    "session_id": self.session_id,
+                    "seq": self.last_seq
                 }
-            ))
+            }
+            asyncio.ensure_future(self.send_json(payload))
         else:
-            asyncio.ensure_future(self.send_json(
-                {
-                    "op": Opcodes.IDENTIFY,
-                    "d": handshake_identity
-                }
-            ))
+            payload = {
+                "op": Opcodes.IDENTIFY,
+                "d": handshake_identity
+            }
+            asyncio.ensure_future(self.send_json(payload))
 
     async def heartbeat(self):
         """
@@ -104,12 +103,11 @@ class DiscordBot:
         """
         await asyncio.sleep(self.heartbeat_interval_ms / 1000.0)
         self.logger.info("Last Sequence: {}".format(self.last_seq))
-        asyncio.ensure_future(self.send_json(
-            {
-                "op": Opcodes.HEARTBEAT,
-                "d": self.last_seq
-            }
-        ))
+        payload = {
+            "op": Opcodes.HEARTBEAT,
+            "d": self.last_seq
+        }
+        asyncio.ensure_future(self.send_json(payload))
         asyncio.ensure_future(self.heartbeat())
 
     async def hello_handler(self, message):
@@ -144,24 +142,45 @@ class DiscordBot:
                     self.logger.warning("Invalid Session")
                 elif message["op"] == Opcodes.DISPATCH:
                     event = message["t"]
-                    if event == Events.READY:
+                    if event == Events.READY.value:
                         self.session_id = message["d"]["session_id"]
+                    elif event == Events.MESSAGE_CREATE.value:
+                        channel_id = message["d"]["channel_id"]
+                        author = message["d"]["author"]["username"]
+                        content = message["d"]["content"]
+                        await self.respond_message(channel_id, author, content)
                 else:
                     self.logger.exception("Unexpected opcode {}: {}".format(message["op"], message))
 
     # TODO: Remove this test code
-    # async def send_message(self, recipient_id, content):
-    #     """
-    #     Post a message into the given channel
-    #     :param recipient_id: num - the recipient to open a DM channel with
-    #     :param content: obj - message sent
-    #     :return: dict - Fires a "Message Create" Gateway event
-    #     """
-    #     channel = requests.post("{}", json={"recipient_id": recipient_id}).json()
-    #
-    #     return requests.post(
-    #         "{}/channels/{}/messages".format(
-    #             self.config["discord_api_endpoint"], channel["id"]),
-    #         json={
-    #             "content": content
-    #         }).json()
+    async def respond_message(self, channel_id, author, content):
+        """
+        Receives a message and responds to the user in the same channel.
+        :param channel_id: int - channel id
+        :param author: string - author of the message
+        :param content: string - message the user inputs
+        :return:
+        """
+        defaults = {
+            "headers": {
+                "Authorization": "Bot {}".format(self.config["handshake_identity"]["token"]),
+                "User-Agent": "MomoiBot (https://github.com/ShifuYee/Discord-Bot)"
+            }
+        }
+        kwargs = dict(defaults, data={
+            "content": f"{author} how may I help?"
+        })
+        if content.startswith("!help"):
+            url = "{}/channels/{}/messages".format(self.config["discord_api_endpoint"], channel_id)
+            async with ClientSession() as session:
+                async with session.request(
+                        "POST",
+                        url,
+                        **kwargs) as r:
+                    if r.status == HTTPStatus.OK:
+                        return await r.json()
+                    else:
+                        raise DiscordBotException(
+                            f"Expected a post to discord channel {channel_id},"
+                            f" received HTTP status code: {r.status} instead of 200, aborting program."
+                        )
