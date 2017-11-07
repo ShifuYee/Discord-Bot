@@ -1,12 +1,7 @@
 from enum import Enum
 
 
-class NoValue(Enum):
-    def __repr__(self):
-        return '<%s.%s>' % (self.__class__.__name__, self.name)
-
-
-class Events (NoValue):
+class Events (Enum):
     """
     Events are based on the section "Events" from the Discord API:
     https://discordapp.com/developers/docs/topics/gateway

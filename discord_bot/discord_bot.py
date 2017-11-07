@@ -145,42 +145,36 @@ class DiscordBot:
                     if event == Events.READY.value:
                         self.session_id = message["d"]["session_id"]
                     elif event == Events.MESSAGE_CREATE.value:
-                        channel_id = message["d"]["channel_id"]
-                        author = message["d"]["author"]["username"]
-                        content = message["d"]["content"]
-                        await self.respond_message(channel_id, author, content)
+                        await self.respond_message(message)
                 else:
                     self.logger.exception("Unexpected opcode {}: {}".format(message["op"], message))
 
-    # TODO: Remove this test code
-    async def respond_message(self, channel_id, author, content):
+    async def respond_message(self, message):
         """
-        Receives a message and responds to the user in the same channel.
-        :param channel_id: int - channel id
-        :param author: string - author of the message
-        :param content: string - message the user inputs
-        :return:
+        Receives a message, parses the message, and responds to the user in the same channel.
+        :param message: obj - the payload of the MESSAGE_CREATE event
+        :return: string - defined by data
         """
-        defaults = {
-            "headers": {
-                "Authorization": "Bot {}".format(self.config["handshake_identity"]["token"]),
-                "User-Agent": "MomoiBot (https://github.com/ShifuYee/Discord-Bot)"
-            }
-        }
-        kwargs = dict(defaults, data={
-            "content": f"{author} how may I help?"
-        })
-        if content.startswith("!help"):
-            url = "{}/channels/{}/messages".format(self.config["discord_api_endpoint"], channel_id)
-            async with ClientSession() as session:
-                async with session.request(
-                        "POST",
-                        url,
-                        **kwargs) as r:
-                    if r.status == HTTPStatus.OK:
-                        return await r.json()
-                    else:
-                        raise DiscordBotException(
-                            f"Expected a post to discord channel {channel_id},"
-                            f" received HTTP status code: {r.status} instead of 200, aborting program."
-                        )
+        channel_id = message["d"]["channel_id"]
+        author_id = message["d"]["author"]["id"]
+        content = message["d"]["content"]
+        if author_id != self.config["momoi_id"]:
+            if content.startswith("!help"):
+                async with ClientSession() as session:
+                    async with session.request(
+                            "POST",
+                            "{}/channels/{}/messages".format(self.config["discord_api_endpoint"], channel_id),
+                            headers={
+                                "Authorization": "Bot {}".format(self.config["handshake_identity"]["token"]),
+                                "User-Agent": "{}".format(self.config["user_agent"])
+                            },
+                            data={
+                                "content": f"<@{author_id}> how may I help?"
+                            }) as r:
+                        if r.status == HTTPStatus.OK:
+                            return await r.json()
+                        else:
+                            raise DiscordBotException(
+                                f"Expected a post to discord channel {channel_id},"
+                                f" received HTTP status code: {r.status} instead of 200, aborting program."
+                            )
