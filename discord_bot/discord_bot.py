@@ -29,8 +29,11 @@ class DiscordBot:
         self.websocket = None
         self.session_id = None
 
-    # TODO: Docstrings for setup and runs
     def setup(self):
+        """
+        Begins the discord bot by loading the configurations, sets up the logger for debugging purposes,
+        and retrieves the gateway URL.
+        """
         self.config = self.load_config(CONFIG_FILE_PATH)
 
         logging.basicConfig(format='%(asctime)s %(module)s %(levelname)s: %(message)s',
@@ -42,6 +45,10 @@ class DiscordBot:
         self.gateway_ws_url = self.event_loop.run_until_complete(self.get_gateway())
 
     def run(self):
+        """
+        Establishes connectivity to the gateway by sending heartbeat payloads and an identify payload. Also, this will
+        perform various functions such as responding to specific commands.
+        """
         self.event_loop.run_until_complete(self.gateway_handler())
         self.event_loop.close()
 
@@ -70,8 +77,10 @@ class DiscordBot:
                         f"Expected gateway URL, received HTTP status code: {r.status} instead of 200, aborting program."
                     )
 
-    # TODO: Docstring
     async def send_json(self, payload):
+        """
+        Sends a payload to the websocket as JSON string.
+        """
         asyncio.ensure_future(self.websocket.send(json.dumps(payload)))
 
     async def handshake(self):
@@ -142,9 +151,9 @@ class DiscordBot:
                     self.logger.warning("Invalid Session")
                 elif message["op"] == Opcodes.DISPATCH:
                     event = message["t"]
-                    if event == Events.READY.value:
+                    if event == Events.READY:
                         self.session_id = message["d"]["session_id"]
-                    elif event == Events.MESSAGE_CREATE.value:
+                    elif event == Events.MESSAGE_CREATE:
                         await self.respond_message(message)
                 else:
                     self.logger.exception("Unexpected opcode {}: {}".format(message["op"], message))
