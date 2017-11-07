@@ -1,7 +1,7 @@
 from enum import Enum
 
 
-class Events (Enum):
+class Events (str, Enum):
     """
     Events are based on the section "Events" from the Discord API:
     https://discordapp.com/developers/docs/topics/gateway

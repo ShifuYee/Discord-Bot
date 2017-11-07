@@ -13,5 +13,7 @@
     "large_threshold": 250,
     "shard": [0, 1]
   },
-  "log_level": "INFO"
+  "log_level": "INFO",
+  "momoi_id": "INSERT MOMOI BOT ID HERE",
+  "user_agent": "MomoiBot (https://github.com/ShifuYee/Discord-Bot)"
 }
