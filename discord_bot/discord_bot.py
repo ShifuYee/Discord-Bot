@@ -128,6 +128,17 @@ class DiscordBot:
         asyncio.ensure_future(self.heartbeat())
         asyncio.ensure_future(self.handshake())
 
+    async def dispatch_handler(self, message):
+        """
+        Handles all types of DISPATCH events.
+        :param message: dict - the message object.
+        """
+        event = message["t"]
+        if event == Events.READY:
+            self.session_id = message["d"]["session_id"]
+        elif event == Events.MESSAGE_CREATE:
+            await self.respond_message(message)
+
     async def gateway_handler(self):
         """
         Creates the websocket, receives responses and acts on them.
@@ -150,40 +161,26 @@ class DiscordBot:
                 elif message["op"] == Opcodes.INVALID_SESSION:
                     self.logger.warning("Invalid Session")
                 elif message["op"] == Opcodes.DISPATCH:
-                    event = message["t"]
-                    if event == Events.READY:
-                        self.session_id = message["d"]["session_id"]
-                    elif event == Events.MESSAGE_CREATE:
-                        await self.respond_message(message)
+                    asyncio.ensure_future(self.dispatch_handler(message))
                 else:
                     self.logger.exception("Unexpected opcode {}: {}".format(message["op"], message))
 
     async def respond_message(self, message):
         """
         Receives a message, parses the message, and responds to the user in the same channel.
-        :param message: obj - the payload of the MESSAGE_CREATE event
-        :return: string - defined by data
+        :param message: dict - the payload of the MESSAGE_CREATE Gateway event
+        :return: dict - a message object. Also fires a MESSAGE_CREATE Gateway event
         """
-        channel_id = message["d"]["channel_id"]
         author_id = message["d"]["author"]["id"]
+        base_url = self.config["discord_api_endpoint"]
+        bot_token = self.config["handshake_identity"]["token"]
+        channel_id = message["d"]["channel_id"]
         content = message["d"]["content"]
+        payload = {"content": f"<@{author_id}> how may I help?"}
+        url = f"{base_url}/channels/{channel_id}/messages"
+        headers = {"Authorization": f"Bot {bot_token}", "User-Agent": self.config["user_agent"]}
+
         if author_id != self.config["momoi_id"]:
             if content.startswith("!help"):
                 async with ClientSession() as session:
-                    async with session.request(
-                            "POST",
-                            "{}/channels/{}/messages".format(self.config["discord_api_endpoint"], channel_id),
-                            headers={
-                                "Authorization": "Bot {}".format(self.config["handshake_identity"]["token"]),
-                                "User-Agent": "{}".format(self.config["user_agent"])
-                            },
-                            data={
-                                "content": f"<@{author_id}> how may I help?"
-                            }) as r:
-                        if r.status == HTTPStatus.OK:
-                            return await r.json()
-                        else:
-                            raise DiscordBotException(
-                                f"Expected a post to discord channel {channel_id},"
-                                f" received HTTP status code: {r.status} instead of 200, aborting program."
-                            )
+                    await session.request("POST", url, headers=headers, data=payload)
