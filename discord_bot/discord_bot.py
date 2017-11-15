@@ -67,9 +67,8 @@ class DiscordBot:
         :return: gateway URL
         """
         # TODO: configurable timeout for all of our REST requests
-        base_url = self.config["discord_api_endpoint"]
         async with ClientSession() as session:
-            async with session.request("GET", f"{base_url}/gateway") as r:
+            async with session.request("GET", f"{self.config['discord_api_endpoint']}/gateway") as r:
                 if r.status == HTTPStatus.OK:
                     json_response = await r.json()
                     return json_response["url"]
@@ -112,8 +111,7 @@ class DiscordBot:
         Sends a heartbeat payload every heartbeat interval.
         """
         await asyncio.sleep(self.heartbeat_interval_ms / 1000.0)
-        last_seq = self.last_seq
-        self.logger.info(f"Last Sequence: {last_seq}")
+        self.logger.info(f"Last Sequence: {self.last_seq}")
         payload = {
             "op": Opcodes.HEARTBEAT,
             "d": self.last_seq
@@ -146,15 +144,14 @@ class DiscordBot:
         Creates the websocket, receives responses and acts on them.
         """
         gateway_ws_url = self.gateway_ws_url
-        api_version = self.config["gateway_api_version"]
+        api_version = self.config['gateway_api_version']
         gateway_encoding = self.config["gateway_encoding"]
         async with websockets.connect(f"{gateway_ws_url}/?v={api_version}&encoding={gateway_encoding}") as websocket:
             self.websocket = websocket
             while True:
                 message = await self.websocket.recv()
                 message = json.loads(message)
-                opcode_name = Opcodes(message["op"]).name
-                self.logger.info(f"{opcode_name}: {message}")
+                self.logger.info(f"{Opcodes(message['op']).name}: {message}")
                 if message["s"] is not None:
                     self.last_seq = message["s"]
 
@@ -167,8 +164,7 @@ class DiscordBot:
                 elif message["op"] == Opcodes.DISPATCH:
                     asyncio.ensure_future(self.dispatch_handler(message))
                 else:
-                    message_op = message["op"]
-                    self.logger.exception(f"Unexpected opcode {message_op}: {message}")
+                    self.logger.exception(f"Unexpected opcode {message['op']}: {message}")
 
     async def respond_message(self, message):
         """
@@ -176,13 +172,12 @@ class DiscordBot:
         :param message: dict - the payload of the MESSAGE_CREATE Gateway event
         """
         author_id = message["d"]["author"]["id"]
-        base_url = self.config["discord_api_endpoint"]
         bot_token = self.config["handshake_identity"]["token"]
         channel_id = message["d"]["channel_id"]
         content = message["d"]["content"]
         headers = {"Authorization": f"Bot {bot_token}", "User-Agent": self.config["user_agent"]}
         payload = {"content": f"<@{author_id}> how may I help?"}
-        url = f"{base_url}/channels/{channel_id}/messages"
+        url = f"{self.config['discord_api_endpoint']}/channels/{channel_id}/messages"
 
         if author_id != self.config["momoi_id"]:
             if content.startswith("!help"):
