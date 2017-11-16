@@ -1,4 +1,5 @@
 import unittest
+import asyncio
 
 from discord_bot.discord_bot import DiscordBot
 
@@ -29,7 +30,10 @@ class TestStringMethods(unittest.TestCase):
                 "compress": False,
                 "large_threshold": 250,
                 "shard": [0, 1]
-            }
+            },
+            "log_level": "INFO",
+            "momoi_id": "INSERT MOMOI BOT ID HERE",
+            "user_agent": "MomoiBot (https://github.com/ShifuYee/Discord-Bot)"
         })
 
     def test_get_gateway(self):
@@ -40,7 +44,8 @@ class TestStringMethods(unittest.TestCase):
             "discord_api_endpoint": "https://discordapp.com/api/v6"
         }
         # TODO: Mock out Discord API endpoint
-        gateway = self.bot.get_gateway()
+        loop = asyncio.get_event_loop()
+        gateway = loop.run_until_complete(self.bot.get_gateway())
         self.assertEqual(gateway, "wss://gateway.discord.gg")
 
 
